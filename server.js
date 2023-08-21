@@ -1,4 +1,6 @@
 const express = require('express');
+const cluster = require('cluster');
+const os = require('os');
 
 const app = express();
 
@@ -10,12 +12,12 @@ function delay(duration){
 }
 
 app.get('/', (req, res) => {
-    res.send('Performance example');
+    res.send(`Performance example: ${process.pid}`);
 });
 
 app.get('/delay', (req, res) => {
     delay(9000);
-    res.send('Delay example');
+    res.send(`Delay example: ${process.pid}`);
 });
 
 app.get("/delay-async", (req, res) => {
@@ -24,6 +26,14 @@ app.get("/delay-async", (req, res) => {
   }, 9000);
 });
 
-app.listen(3000, () => {
-    console.log('Server listening on port 3000');
-});
+console.log('running server.js');
+if(cluster.isMaster){
+    console.log(`Master ${process.pid} is running`);
+    const NUMCPUs = os.cpus().length;
+    for(let i = 0; i < NUMCPUs; i++){
+        cluster.fork();
+    }
+} else{
+    console.log(`Worker ${process.pid} started`);
+    app.listen(3000);
+}

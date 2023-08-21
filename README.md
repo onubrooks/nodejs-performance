@@ -59,3 +59,37 @@ Now if we load `/delay-async` on one tab and `/` on a second tab, the second tab
 
 Generally, in dealing with overloaded servers, we want to divide the work up and spread the load. Knowing that unlike Jave and C#, Node is a single threaded runtime. What we do is to run multiple processes side by side to share the work. Our requests can be spread across multiple NodeJs processes. This simple technique allows NodeJs to make full use of all the CPUs on your machine.
 How do we achieve this: enter the [Node cluster module](https://nodejs.org/api/cluster.html). It allows us to create copies of our server process that each run the server code side by side in parallel.
+The code for this part can be found in the cluster branch.
+
+Using the cluster module, NodeJs has a master process and this process can fork child processes using the `fork()` method. The worker processes run the same code as the master but we can differentiate which process is running a particular request using the `isMaster` property.
+
+We can now adjust our code by importing the cluster module (`const cluster = require('cluster');`) and using it like so:
+
+```js
+console.log('running server.js');
+if(cluster.isMaster){
+    console.log(`Master ${process.pid} is running`);
+    cluster.fork();
+    cluster.fork();
+} else{
+    console.log(`Worker ${process.pid} started`);
+    app.listen(3000);
+}
+```
+
+To demonstrate that every worker node runs the exact same code, we add a `console.log` call before the cluster code. Now when we run `npm start`, we see that it logs '' 3 times, one for the master node and one  each for the 2 worker nodes.
+
+Now when we repeat our 2 tab trick by running `/delay` in one tab and `/` in another, the second request returns immediately with a different process ID. Also, try running the same `/delay` request in both tabs at the same time and see how in about 9 seconds, both requests complete. Ensure to disable cache in the network tab so that browsers like chrome don't wait for one request to complete before running the second.
+
+## Improving our cluster performance
+
+How many forks should we create? The answer the number of physical or logical cores in our CPU. We can find this out by using the `os` module to find the number:
+
+```js
+const NUMCPUs = os.cpus().length;
+for(let i = 0; i < NUMCPUs; i++){
+    cluster.fork();
+}
+```
+
+I have 8 logical cores in on my computer and that should vary on different systems. Now we have maximised the number of cores we can use. Now we can open the `/delay` in multiple tabs and they'll each take around 9 seconds to complete the requests. It should now take up to 9 concurrent requests to slow down our server.
