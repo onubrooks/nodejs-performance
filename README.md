@@ -61,13 +61,13 @@ Generally, in dealing with overloaded servers, we want to divide the work up and
 How do we achieve this: enter the [Node cluster module](https://nodejs.org/api/cluster.html). It allows us to create copies of our server process that each run the server code side by side in parallel.
 The code for this part can be found in the cluster branch.
 
-Using the cluster module, NodeJs has a master process and this process can fork child processes using the `fork()` method. The worker processes run the same code as the master but we can differentiate which process is running a particular request using the `isMaster` property.
+Using the cluster module, NodeJs has a master process and this process can fork child processes using the `fork()` method. The worker processes run the same code as the master but we can differentiate which process is running a particular request using the `isPrimary` property.
 
 We can now adjust our code by importing the cluster module (`const cluster = require('cluster');`) and using it like so:
 
 ```js
 console.log('running server.js');
-if(cluster.isMaster){
+if(cluster.isPrimary){
     console.log(`Master ${process.pid} is running`);
     cluster.fork();
     cluster.fork();
@@ -93,3 +93,29 @@ for(let i = 0; i < NUMCPUs; i++){
 ```
 
 I have 8 logical cores in on my computer and that should vary on different systems. Now we have maximised the number of cores we can use. Now we can open the `/delay` in multiple tabs and they'll each take around 9 seconds to complete the requests. It should now take up to 9 concurrent requests to slow down our server.
+
+## Using PM2
+[PM2](https://www.npmjs.com/package/pm2) is a great tool for handling clusters automatically. With PM2, we can use clusters without directly using the cluster module. After installing `pm2` NPM package and removing all the cluster code, we can just run the following on the terminal:
+
+```sh
+pm2 start server.js -i max
+```
+
+Making requests on multiple browser tabs now shows the process IDs for the different processes handling our requests. Remember, PM2 uses the cluster module under the hood.
+We can do `pm2 list` to show the current status of our server and `pm2 logs` to get a real time view of what's being logged in our server in real time. 
+
+PM2 has so many other handy features like sending logs to a file and log rotation. We can take advantage of these to manage our clusters:
+
+```sh
+pm2 start server.js -l logs.txt -i max
+
+pm2 show 0
+```
+
+The show command accepts the ID of a worker process and gives us more information about its running. We can also stop and start individual processes by their id: `pm2 stop 7`.
+
+The `pm2 monit` commit shows us a live dashboard of the status of each server process as they accept incoming requests. We can see the CPU usage go up and down as requests come in.
+
+Lastly, if our server code has changed, we want to ensure a zero downtime restart. Using `pm2 restart server`, there will be a point where the server will be unavailable to users. We instead use the `reload` command which restarts the individual processes one by one, keeping at least one process running at all times.
+
+`pm2 reload server`
