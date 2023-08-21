@@ -13,9 +13,15 @@ app.get('/', (req, res) => {
     res.send('Performance example');
 });
 
-app.get('/timer', (req, res) => {
+app.get('/delay', (req, res) => {
     delay(9000);
-    res.send('Timer example');
+    res.send('Delay example');
+});
+
+app.get("/delay-async", (req, res) => {
+  setTimeout(() => {
+    res.send("Async delay example");
+  }, 9000);
 });
 
 app.listen(3000, () => {
